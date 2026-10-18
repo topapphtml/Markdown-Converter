@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Markdown Converter Pro - Advanced</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Core libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/turndown/7.1.2/turndown.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════
+   RESET & TOKENS
+═══════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0D0F12;--surface:#161A1F;--card:#1E2530;--border:#2A3142;
+  --accent:#3B82F6;--accent-h:#60A5FA;
+  --danger:#EF4444;--success:#22C55E;--warn:#F59E0B;
+  --text:#E2E8F0;--text-2:#CBD5E1;--muted:#64748B;--faint:#374151;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
+  --r:8px;--r-lg:12px;--ease:200ms cubic-bezier(0.4,0,0.2,1);
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);
+  --safe-right:env(safe-area-inset-right,0px);
+  --header-h:52px;--nav-h:56px;
+}
+
+html{height:100%;overflow:hidden;overscroll-behavior:none}
+body{
+  height:100%;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:14px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;
+  overflow:hidden;overscroll-behavior:none;
+}
+
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-top:var(--safe-top)}
+
+/* ── Header ── */
+header{
+  flex-shrink:0;height:var(--header-h);
+  display:flex;align-items:center;
+  padding:0 max(16px,var(--safe-left));
+  padding-right:max(16px,var(--safe-right));
+  background:var(--surface);border-bottom:1px solid var(--border);gap:10px;
+}
+.logo{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;letter-spacing:-.01em;flex-shrink:0}
+.logo-icon{
+  width:26px;height:26px;background:var(--accent);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.logo-sub{color:var(--muted);font-weight:400;font-size:13px}
+.header-badge{
+  display:flex;align-items:center;gap:6px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:4px 10px 4px 8px;font-size:11px;
+  margin-left:auto;flex-shrink:0;
+}
+.badge-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background var(--ease),box-shadow var(--ease)}
+.badge-dot.live{background:var(--success);box-shadow:0 0 6px var(--success)}
+.badge-val{font-family:var(--mono);font-weight:600;color:var(--text);white-space:nowrap}
+
+/* ── Body ── */
+.body{flex:1;overflow:hidden;display:flex;min-height:0}
+.left-panel{width:360px;flex-shrink:0;display:flex;flex-direction:column;background:var(--surface);border-right:1px solid var(--border);overflow:hidden}
+.right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── Upload section ── */
+.upload-section{padding:16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sec-label{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.dropzone{position:relative;border:1.5px dashed var(--border);border-radius:var(--r-lg);padding:20px 16px;text-align:center;cursor:pointer;transition:all var(--ease)}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.dropzone input[type="file"]{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.drop-icon{width:40px;height:40px;margin:0 auto 10px;background:var(--card);border:1px solid var(--border);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all var(--ease)}
+.dropzone:hover .drop-icon,.dropzone.drag-over .drop-icon{background:rgba(59,130,246,.15);border-color:var(--accent)}
+.drop-title{font-weight:600;font-size:13px;margin-bottom:3px}
+.drop-sub{font-size:11px;color:var(--muted)}
+.fmt-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;justify-content:center}
+.fmt-tag{font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:var(--card);border:1px solid var(--border);color:var(--muted);letter-spacing:.05em}
+
+/* ── Queue ── */
+.queue-wrap{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.queue-wrap::-webkit-scrollbar{width:3px}
+.queue-wrap::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+
+.queue-empty{display:flex;align-items:center;justify-content:center;height:60px;color:var(--faint);font-size:12px}
+.file-item{display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all var(--ease);position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent}
+.file-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background var(--ease)}
+.file-item:active{opacity:.75}
+.file-item.active{border-color:var(--accent)}
+.file-item.active::before{background:var(--accent)}
+.file-item.done::before{background:var(--success)}
+.file-item.error::before{background:var(--danger)}
+.file-thumb{width:30px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.02em;flex-shrink:0}
+.file-meta{flex:1;min-width:0}
+.file-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-size{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.file-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.05em;text-transform:uppercase;flex-shrink:0;display:flex;align-items:center;gap:4px}
+.st-pending{background:var(--faint);color:var(--muted)}
+.st-loading{background:rgba(59,130,246,.15);color:var(--accent-h)}
+.st-done{background:rgba(34,197,94,.15);color:var(--success)}
+.st-error{background:rgba(239,68,68,.15);color:var(--danger)}
+.file-prog{position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--border)}
+.file-prog-fill{height:100%;width:0%;background:var(--accent);transition:width .4s ease;border-radius:1px}
+.file-prog-fill.run{animation:prog-run 1.2s ease infinite;width:35%!important}
+@keyframes prog-run{0%{margin-left:-35%}100%{margin-left:135%}}
+
+/* ── Left footer ── */
+.left-footer{flex-shrink:0;border-top:1px solid var(--border)}
+.stats-row{display:flex;border-bottom:1px solid var(--border)}
+.stat-cell{flex:1;padding:10px 12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
+.stat-cell:last-child{border-right:none}
+.stat-val{font-family:var(--mono);font-size:15px;font-weight:600;line-height:1}
+.stat-val.green{color:var(--success)}
+.stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.convert-row{padding:12px;display:flex;flex-direction:column;gap:8px}
+
+.btn-convert{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px;background:var(--accent);color:#fff;
+  border:none;border-radius:var(--r);font-size:13px;font-weight:600;
+  font-family:var(--sans);cursor:pointer;transition:all var(--ease);
+}
+.btn-convert:hover{background:var(--accent-h)}
+.btn-convert:disabled{opacity:.4;cursor:not-allowed}
+
+.btn-zip{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:9px;background:rgba(34,197,94,.1);color:var(--success);
+  border:1px solid rgba(34,197,94,.3);border-radius:var(--r);font-size:12px;font-weight:600;
+  font-family:var(--sans);cursor:pointer;transition:all var(--ease);
+}
+
+/* ── Preview area ── */
+.preview-toolbar{flex-shrink:0;display:flex;align-items:center;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border);gap:8px}
+.view-tabs{display:flex;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:2px;gap:2px}
+.vtab{padding:4px 11px;border-radius:4px;font-size:11px;font-weight:500;color:var(--muted);background:transparent;border:none;cursor:pointer;transition:all var(--ease)}
+.vtab.active{background:var(--surface);color:var(--text)}
+.toolbar-btns{display:flex;gap:6px;margin-left:auto}
+.btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--r);font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);transition:all var(--ease)}
+
+.preview-area{flex:1;position:relative;overflow:hidden;min-height:0}
+.pane{position:absolute;inset:0;overflow-y:auto;display:none;padding:20px}
+.pane.visible{display:block}
+.pane-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center}
+
+pre{font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);padding:10px 20px;border-radius:20px;font-size:12px;z-index:1000;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+
+.spin {
+  width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.3);
+  border-radius: 50%; border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">M</div>
+      Markdown Converter <span class="logo-sub">Pro v2</span>
+    </div>
+    <div class="header-badge">
+      <div class="badge-dot live" id="statusDot"></div>
+      <span class="badge-val" id="statusText">Ready</span>
+    </div>
+  </header>
+
+  <div class="body">
+    <div class="left-panel" id="leftPanel">
+      <div class="upload-section">
+        <div class="sec-label">Upload files</div>
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" multiple accept=".docx,.epub,.mobi,.pdf,.txt,.jpg,.jpeg,.png">
+          <div class="drop-icon">↑</div>
+          <div class="drop-title">Drag and drop or click</div>
+          <div class="drop-sub">DOCX, EPUB, MOBI, PDF, TXT</div>
+        </div>
+        <div class="fmt-tags">
+          <span class="fmt-tag">.DOCX</span>
+          <span class="fmt-tag">.EPUB</span>
+          <span class="fmt-tag">.MOBI</span>
+          <span class="fmt-tag">.PDF</span>
+          <span class="fmt-tag">.TXT</span>
+        </div>
+      </div>
+
+      <div class="queue-wrap" id="queueWrap">
+        <div class="queue-empty" id="queueEmpty">No files in queue</div>
+      </div>
+
+      <div class="left-footer">
+        <div class="stats-row">
+          <div class="stat-cell">
+            <span class="stat-val" id="statTotal">0</span>
+            <span class="stat-lbl">Total</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-val green" id="statDone">0</span>
+            <span class="stat-lbl">Done</span>
+          </div>
+        </div>
+        <div class="convert-row">
+          <button class="btn-convert" id="convertBtn" onclick="convertAll()" disabled>⚡ Convert all</button>
+          <button class="btn-zip" id="zipBtn" onclick="downloadZip()" disabled>📦 Download ZIP</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="preview-toolbar">
+        <div class="view-tabs">
+          <button class="vtab active" id="tabRaw" onclick="switchView('raw')">Code</button>
+          <button class="vtab" id="tabRendered" onclick="switchView('rendered')">Preview</button>
+        </div>
+        <div class="toolbar-btns">
+          <button class="btn" onclick="copyResult()" id="copyBtn" disabled>Copy</button>
+        </div>
+      </div>
+      <div class="preview-area">
+        <div id="paneEmpty" class="pane visible">
+          <div class="pane-empty">
+            <h3>No file selected</h3>
+            <p>Select a converted file to preview it</p>
+          </div>
+        </div>
+        <div id="paneRaw" class="pane">
+          <pre id="rawPre"></pre>
+        </div>
+        <div id="paneRendered" class="pane">
+          <div id="rendDiv"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+// MOBI parser integration via ES module
+import { initMobiFile } from 'https://cdn.jsdelivr.net/npm/@lingo-reader/mobi-parser@0.4.6/dist/index.browser.min.mjs';
+window.initMobiFile = initMobiFile;
+</script>
+
+<script>
+const $ = id => document.getElementById(id);
+const files = [];
+let activeIdx = null;
+let isConverting = false;
+let curView = 'raw';
+
+// PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// Turndown setup
+const turndownService = new TurndownService({
+  headingStyle: 'atx',
+  hr: '---',
+  bulletListMarker: '-',
+  codeBlockStyle: 'fenced'
+});
+
+// Table-to-text rule
+turndownService.addRule('table', {
+  filter: 'table',
+  replacement: function (content, node) {
+    let tableText = node.innerText || node.textContent;
+    // Clean up excessive whitespace in table text
+    tableText = tableText.split('\n').map(l => l.trim()).filter(l => l).join(' | ');
+    return "\n\n> [WARNING: Table converted to plain text]\n\n" + tableText + "\n\n";
+  }
+});
+
+// UI elements
+const dz = $('dropzone'), fInput = $('fileInput'), qWrap = $('queueWrap'), qEmpty = $('queueEmpty');
+const statTotal = $('statTotal'), statDone = $('statDone'), convertBtn = $('convertBtn'), zipBtn = $('zipBtn');
+const rawPre = $('rawPre'), rendDiv = $('rendDiv'), copyBtn = $('copyBtn');
+
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); ingest([...e.dataTransfer.files]); });
+fInput.addEventListener('change', () => { ingest([...fInput.files]); fInput.value = ''; });
+
+function ingest(raw) {
+  const allowedExts = ['docx','epub','mobi','pdf','txt','jpg','jpeg','png'];
+  const valid = raw.filter(f => {
+    const ext = f.name.split('.').pop().toLowerCase();
+    return allowedExts.includes(ext);
+  });
+  
+  if (!valid.length) { toast('❌ Unsupported format'); return; }
+
+  valid.forEach(f => {
+    files.push({
+      id: Math.random().toString(36).substr(2, 9),
+      file: f,
+      name: f.name,
+      ext: f.name.split('.').pop().toLowerCase(),
+      size: f.size,
+      status: 'pending',
+      md: null,
+      err: null
+    });
+  });
+
+  renderQueue();
+  updateStats();
+  convertBtn.disabled = false;
+}
+
+function renderQueue() {
+  qEmpty.style.display = files.length ? 'none' : '';
+  qWrap.querySelectorAll('.file-item').forEach(el => el.remove());
+
+  files.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = `file-item ${f.status} ${i === activeIdx ? 'active' : ''}`;
+    el.innerHTML = `
+      <div class="file-thumb">${f.ext.toUpperCase().slice(0,3)}</div>
+      <div class="file-meta">
+        <div class="file-name">${f.name}</div>
+        <div class="file-size">${(f.size/1024).toFixed(1)} KB</div>
+      </div>
+      <span class="file-badge st-${f.status}">${f.status}</span>
+      <div class="file-prog">
+        <div class="file-prog-fill ${f.status==='loading'?'run':''}" style="width:${f.status==='done'?'100':'0'}%"></div>
+      </div>`;
+    el.onclick = () => selectFile(i);
+    qWrap.appendChild(el);
+  });
+}
+
+function selectFile(i) {
+  activeIdx = i;
+  renderQueue();
+  const f = files[i];
+  if (f.status === 'done') displayMD(f.md);
+  else if (f.status === 'error') displayMD(`# Errore\n\n${f.err}`);
+  else displayMD('');
+}
+
+function displayMD(md) {
+  rawPre.textContent = md;
+  rendDiv.innerHTML = md ? marked.parse(md) : '';
+  switchView(curView);
+  copyBtn.disabled = !md;
+  if (!md) {
+    $('paneEmpty').classList.add('visible');
+    $('paneRaw').classList.remove('visible');
+    $('paneRendered').classList.remove('visible');
+  } else {
+    $('paneEmpty').classList.remove('visible');
+  }
+}
+
+window.switchView = v => {
+  curView = v;
+  $('tabRaw').classList.toggle('active', v === 'raw');
+  $('tabRendered').classList.toggle('active', v === 'rendered');
+  if (rawPre.textContent) {
+    $('paneRaw').classList.toggle('visible', v === 'raw');
+    $('paneRendered').classList.toggle('visible', v === 'rendered');
+  }
+};
+
+function updateStats() {
+  statTotal.textContent = files.length;
+  statDone.textContent = files.filter(f => f.status === 'done').length;
+}
+
+window.convertAll = async () => {
+  if (isConverting) return;
+  const pending = files.filter(f => f.status === 'pending');
+  if (!pending.length) return;
+
+  isConverting = true;
+  convertBtn.disabled = true;
+  convertBtn.textContent = '⏳ Converting...';
+
+  for (const f of pending) {
+    f.status = 'loading';
+    renderQueue();
+    try {
+      f.md = await convertFile(f);
+      f.status = 'done';
+    } catch (e) {
+      console.error(e);
+      f.status = 'error';
+      f.err = e.message;
+    }
+    renderQueue();
+    updateStats();
+  }
+
+  isConverting = false;
+  convertBtn.disabled = false;
+  convertBtn.textContent = '⚡ Convert all';
+  zipBtn.disabled = files.filter(f => f.status === 'done').length === 0;
+  toast('✅ Conversion complete');
+};
+
+async function convertFile(f) {
+  const ext = f.ext;
+  let md = '';
+
+  if (ext === 'txt') {
+    const text = await f.file.text();
+    md = processTxt(text, f.name);
+  } else if (ext === 'docx') {
+    const arrayBuffer = await f.file.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    md = turndownService.turndown(result.value);
+  } else if (ext === 'pdf') {
+    md = await processPdf(f.file);
+  } else if (ext === 'epub') {
+    md = await processEpub(f.file);
+  } else if (ext === 'mobi') {
+    md = await processMobi(f.file);
+  } else if (['jpg','jpeg','png'].includes(ext)) {
+    md = await processOCR(f.file);
+  }
+
+  return cleanMD(md, f.name);
+}
+
+function processTxt(text, name) {
+  // Identify chapter titles
+  const lines = text.split('\n');
+  const processed = lines.map(line => {
+    const trimmed = line.trim();
+    if (/^(Capitolo|Chapter|Sezione|Section|Parte|Part)\s+\d+/i.test(trimmed) || 
+        (trimmed.length < 50 && trimmed === trimmed.toUpperCase() && trimmed.length > 3)) {
+      return `## ${trimmed}`;
+    }
+    return line;
+  });
+  return processed.join('\n');
+}
+
+async function processPdf(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = '';
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const strings = content.items.map(item => item.str);
+    fullText += strings.join(' ') + '\n\n';
+  }
+
+  // OCR fallback if text is insufficient
+  if (fullText.trim().length < 100) {
+    toast(`🔍 Little text found in PDF, starting OCR...`);
+    return await processPdfOCR(pdf);
+  }
+  
+  return fullText;
+}
+
+async function processPdfOCR(pdf) {
+  let ocrText = '> [Nota: Text extracted via OCR]\n\n';
+  const worker = await Tesseract.createWorker('ita+eng');
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 2.0 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    
+    await page.render({ canvasContext: context, viewport }).promise;
+    const { data: { text } } = await worker.recognize(canvas);
+    ocrText += `### Page ${i}\n\n${text}\n\n`;
+  }
+  
+  await worker.terminate();
+  return ocrText;
+}
+
+async function processEpub(file) {
+  const zip = await JSZip.loadAsync(file);
+  const container = await zip.file("META-INF/container.xml").async("text");
+  const opfPath = container.match(/full-path="([^"]+)"/)[1];
+  const opfText = await zip.file(opfPath).async("text");
+  const opfDoc = new DOMParser().parseFromString(opfText, "text/xml");
+  
+  const manifest = Array.from(opfDoc.querySelectorAll("item")).reduce((acc, item) => {
+    acc[item.getAttribute("id")] = item.getAttribute("href");
+    return acc;
+  }, {});
+  
+  const spineIds = Array.from(opfDoc.querySelectorAll("spine itemref")).map(item => item.getAttribute("idref"));
+  const baseDir = opfPath.substring(0, opfPath.lastIndexOf("/") + 1);
+  
+  let htmlContent = '';
+  for (const id of spineIds) {
+    const href = manifest[id];
+    const path = baseDir + href;
+    const content = await zip.file(path).async("text");
+    const doc = new DOMParser().parseFromString(content, "text/html");
+    htmlContent += doc.body.innerHTML + '\n\n';
+  }
+  
+  return turndownService.turndown(htmlContent);
+}
+
+async function processMobi(file) {
+  try {
+    if (!window.initMobiFile) throw new Error("MOBI parser not loaded");
+    const mobi = await window.initMobiFile(file);
+    const spine = mobi.getSpine();
+    let htmlContent = '';
+    
+    for (const item of spine) {
+      const chapter = mobi.loadChapter(item.id);
+      if (chapter && chapter.html) {
+        htmlContent += chapter.html + '\n\n';
+      }
+    }
+    
+    mobi.destroy();
+    return turndownService.turndown(htmlContent);
+  } catch (e) {
+    console.warn("Advanced MOBI parsing failed; falling back to raw text extraction", e);
+    return await fallbackMobiText(file);
+  }
+}
+
+async function fallbackMobiText(file) {
+  const ab = await file.arrayBuffer();
+  const view = new DataView(ab);
+  // Basic PDB/MOBI text extraction logic (simplified)
+  // Try to find large blocks of text if possible
+  const text = new TextDecoder().decode(ab);
+  const clean = text.replace(/[^\x20-\x7E\n\r\t]/g, ' '); // Remove binary junk
+  return `> [Nota: Raw MOBI text extraction]\n\n${clean.substring(0, 5000)}...`;
+}
+
+async function processOCR(file) {
+  const worker = await Tesseract.createWorker('ita+eng');
+  const { data: { text } } = await worker.recognize(file);
+  await worker.terminate();
+  return `> [Nota: Text extracted via OCR]\n\n${text}`;
+}
+
+function cleanMD(md, name) {
+  let cleaned = md
+    .replace(/\n{3,}/g, '\n\n') // Max 2 line breaks
+    .replace(/(\w)-\n(\w)/g, '$1$2') // Fix hyphenated words
+    .trim();
+  
+  if (!cleaned.startsWith('#')) {
+    const title = name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+    cleaned = `# ${title}\n\n${cleaned}`;
+  }
+  return cleaned;
+}
+
+window.downloadZip = async () => {
+  const zip = new JSZip();
+  const done = files.filter(f => f.status === 'done');
+  done.forEach(f => {
+    zip.file(f.name.replace(/\.[^.]+$/, '') + '.md', f.md);
+  });
+  const content = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `markdown_conversion_${new Date().getTime()}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+window.copyResult = () => {
+  navigator.clipboard.writeText(rawPre.textContent);
+  toast('📋 Copied to clipboard');
+};
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+</script>
+</body>
+</html>
